@@ -1,0 +1,50 @@
+#include <SPI.h>
+
+#define CS_PIN 5
+#define DRDY_PIN 4
+#define RST_PIN 21
+
+void setup() {
+  Serial.begin(115200);
+  SPI.begin(18, 19, 23, CS_PIN); // SCLK, MISO, MOSI, CS
+  pinMode(DRDY_PIN, INPUT);
+  pinMode(CS_PIN, OUTPUT);
+  pinMode(RST_PIN, OUTPUT);
+  
+  digitalWrite(RST_PIN, HIGH); // Keep reset inactive
+  
+  // Reset ADS1256 - Basic reset sequence
+  digitalWrite(CS_PIN, LOW);
+  digitalWrite(RST_PIN, LOW);
+  delay(1);
+  digitalWrite(RST_PIN, HIGH);
+  digitalWrite(CS_PIN, HIGH);
+  
+  delay(100); // Wait for ADC ready
+  
+  // Set PGA, data rate, input channels by sending ADS1256 commands here (depends on your library)
+}
+
+void loop() {
+  if (digitalRead(DRDY_PIN) == LOW) { // Data ready
+    digitalWrite(CS_PIN, LOW);
+    
+    // Send RDATA command (0x01) to read data from ADS1256
+    SPI.transfer(0x01);
+    
+    // Read 3 bytes of data (24-bit)
+    long value = 0;
+    value |= (SPI.transfer(0x00) << 16);
+    value |= (SPI.transfer(0x00) << 8);
+    value |= SPI.transfer(0x00);
+    
+    digitalWrite(CS_PIN, HIGH);
+
+    // Convert to signed 24-bit integer
+    if (value & 0x800000) {
+      value |= 0xFF000000; // Sign extend for negative value
+    }
+    
+    Serial.println(value);
+  }
+}
